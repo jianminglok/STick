@@ -86,12 +86,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.Timer;
+import java.util.TimerTask;
 import java.util.UUID;
 
 import im.delight.android.location.SimpleLocation;
@@ -114,7 +116,9 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     private String m_firstManeuverAudio;
     private String m_firstManeuverAudioFinal;
     public DiscoveryRequest discoveryRequest;
-    public ArrayList<DiscoveryResult> arrayList;
+    public Integer[] arrayList;
+
+    private Double d;
 
     public static List<DiscoveryResult> s_ResultList;
 
@@ -150,6 +154,11 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     private String m_LocationChooseDestination;
     private String m_LocationChooseVicinity;
     public Set<BluetoothDevice> pairedDevices;
+    private Double m_SecondLargest;
+    private Double m_ThirdLargest;
+    private Double m_Largest;
+    private Double m_Distance;
+    private boolean m_LargeCount;
 
     byte[] readBuffer;
     int readBufferPosition;
@@ -303,6 +312,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             openBT();
         }
         catch (IOException ex) {}
+        m_LargeCount = false;
         m_voiceCount = 5;
         m_VoiceSet = false;
         m_VoiceSet2 = false;
@@ -509,6 +519,9 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                     m_map.setCenter(position.getCoordinate(), Map.Animation.NONE);
                     Log.e(TAG,"Hey, we just got position");
                     geoCoordinate1 = position.getCoordinate();
+                    if(geoCoordinate1 == null) {
+                        getPosition();
+                    }
                     // Display position indicator
                     m_map.getPositionIndicator().setVisible(true);
                     if(m_proceed) {
@@ -574,6 +587,8 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                  */
                 s_ResultList = discoveryResultPage.getItems();
                 Iterator<DiscoveryResult> i = s_ResultList.iterator();
+                List<Integer> s_DistanceList = new ArrayList<>();
+                Iterator<Integer> ii = s_DistanceList.iterator();
                 for (Iterator<DiscoveryResult> iter = s_ResultList.iterator(); iter.hasNext();) {
 
                     /*
@@ -605,24 +620,49 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                             PlaceLink placeLink = (PlaceLink) item;
 
-                            if (placeLink.getDistance() < 10000) {
+                            s_DistanceList.add((int) placeLink.getDistance());
 
-
-                                Log.e(TAG, item.getTitle());
-
-                                addMarkerAtPlace(placeLink);
-
-                                geoCoordinate = placeLink.getPosition();
-
-                                if (geoCoordinate != null) {
-                                    Log.e(TAG, String.valueOf(geoCoordinate));
-                                } else {
-                                    Log.e(TAG, "error geocoordinate");
-                                }
-                            } else {
-                                iter.remove();
-                                Log.e(TAG, "the list size is " + s_ResultList.size());
+                            if(!iter.hasNext()) {
+                                arrayList = getThreeLowest(s_DistanceList);
                             }
+
+                            if(arrayList != null) {
+                                for (Iterator<DiscoveryResult> iter2 = s_ResultList.iterator(); iter2.hasNext();) {
+
+                                    DiscoveryResult item2 = iter2.next();
+
+                                    PlaceLink placeLink2 = (PlaceLink) item2;
+
+                                    d = placeLink2.getDistance();
+
+                                    Log.e(TAG, "the distance list contains all " + s_DistanceList.toString());
+
+                                    if (Arrays.asList(arrayList).contains(d.intValue())) {
+                                        Log.e(TAG, item.getTitle());
+
+                                        Log.e(TAG, "the distance list contains lowest three " + Arrays.toString(arrayList));
+
+                                        Log.e(TAG, "The distance is " + d.intValue());
+
+                                        Log.e(TAG, "The distance list contains " + s_DistanceList.size());
+                                        Log.e(TAG, "the list size is " + s_ResultList.size());
+
+                                        addMarkerAtPlace(placeLink2);
+
+                                        geoCoordinate = placeLink2.getPosition();
+
+                                        if (geoCoordinate != null) {
+                                            Log.e(TAG, String.valueOf(geoCoordinate));
+                                        } else {
+                                            Log.e(TAG, "error geocoordinate");
+                                        }
+                                    } else {
+                                        iter2.remove();
+                                        Log.e(TAG, "the list size is " + s_ResultList.size());
+                                    }
+                                }
+                            }
+
                         }
 
 
@@ -636,6 +676,19 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             }
         }
     };
+
+    private static Integer[] getThreeLowest(List<Integer> array) {
+        Integer[] lowestValues = new Integer[3];
+        Arrays.fill(lowestValues, Integer.MAX_VALUE);
+
+        for(Integer n : array) {
+            if(n < lowestValues[2]) {
+                lowestValues[2] = n;
+                Arrays.sort(lowestValues);
+            }
+        }
+        return lowestValues;
+    }
 
     private void addMarkerAtPlace(PlaceLink placeLink) {
 
@@ -678,8 +731,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                         m_resultCount = m_resultLetter.charAt(0);
                         m_resultCount2 = 0;
 
-                        m_test = new ArrayList<String>();
-
                         if (m_resultCount2 == 0) {
                             m_resultCountFinal = "first";
                         }
@@ -689,43 +740,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                         if (m_resultCount2 == 2) {
                             m_resultCountFinal = "third";
                         }
-                        if (m_resultCount2 == 3) {
-                            m_resultCountFinal = "fourth";
-                        }
-                        if (m_resultCount2 == 4) {
-                            m_resultCountFinal = "fifth";
-                        }
-                        if (m_resultCount2 == 5) {
-                            m_resultCountFinal = "sixth";
-                        }
-                        if (m_resultCount2 == 6) {
-                            m_resultCountFinal = "seventh";
-                        }
-                        if (m_resultCount2 == 7) {
-                            m_resultCountFinal = "eighth";
-                        }
-                        if (m_resultCount2 == 8) {
-                            m_resultCountFinal = "ninth";
-                        }
-                        if (m_resultCount2 == 9) {
-                            m_resultCountFinal = "tenth";
-                        }
-                        if (m_resultCount2 == 10) {
-                            m_resultCountFinal = "eleventh";
-                        }
-                        if (m_resultCount2 == 11) {
-                            m_resultCountFinal = "twelfth";
-                        }
-                        if (m_resultCount2 == 12) {
-                            m_resultCountFinal = "thirteenth";
-                        }
-                        if (m_resultCount2 == 13) {
-                            m_resultCountFinal = "fourteenth";
-                        }
-                        if (m_resultCount2 == 14) {
-                            m_resultCountFinal = "fifteenth";
-                        }
-
 
                         Speech.getInstance().say(m_resultCountFinal + "option " + "," + s_ResultList.get(m_resultCount2).getTitle() + "," + s_ResultList.get(m_resultCount2).getVicinity().replace("<br/>", ", "), new TextToSpeechCallback() {
                             @Override
@@ -735,7 +749,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                             @Override
                             public void onCompleted() {
-                                m_test.add(m_resultCountFinal);
                                 m_resultLetter = String.valueOf((char) (m_resultCount + 1));
                                 m_resultCount2 = m_resultCount2 + 1;
 
@@ -747,42 +760,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                 }
                                 if (m_resultCount2 == 2) {
                                     m_resultCountFinal = "third";
-                                }
-                                if (m_resultCount2 == 3) {
-                                    m_resultCountFinal = "fourth";
-                                }
-                                if (m_resultCount2 == 4) {
-                                    m_resultCountFinal = "fifth";
-                                }
-                                if (m_resultCount2 == 5) {
-                                    m_resultCountFinal = "sixth";
-                                }
-                                if (m_resultCount2 == 6) {
-                                    m_resultCountFinal = "seventh";
-                                }
-                                if (m_resultCount2 == 7) {
-                                    m_resultCountFinal = "eighth";
-                                }
-                                if (m_resultCount2 == 8) {
-                                    m_resultCountFinal = "ninth";
-                                }
-                                if (m_resultCount2 == 9) {
-                                    m_resultCountFinal = "tenth";
-                                }
-                                if (m_resultCount2 == 10) {
-                                    m_resultCountFinal = "eleventh";
-                                }
-                                if (m_resultCount2 == 11) {
-                                    m_resultCountFinal = "twelfth";
-                                }
-                                if (m_resultCount2 == 12) {
-                                    m_resultCountFinal = "thirteenth";
-                                }
-                                if (m_resultCount2 == 13) {
-                                    m_resultCountFinal = "fourteenth";
-                                }
-                                if (m_resultCount2 == 14) {
-                                    m_resultCountFinal = "fifteenth";
                                 }
 
                                 if (s_ResultList.get(m_resultCount2).getTitle() != null) {
@@ -833,42 +810,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                 if(m_resultCount2 == 2) {
                     m_resultCountFinal = "third";
                 }
-                if(m_resultCount2 == 3) {
-                    m_resultCountFinal = "fourth";
-                }
-                if(m_resultCount2 == 4) {
-                    m_resultCountFinal = "fifth";
-                }
-                if(m_resultCount2 == 5) {
-                    m_resultCountFinal = "sixth";
-                }
-                if(m_resultCount2 == 6) {
-                    m_resultCountFinal = "seventh";
-                }
-                if(m_resultCount2 == 7) {
-                    m_resultCountFinal = "eighth";
-                }
-                if(m_resultCount2 == 8) {
-                    m_resultCountFinal = "ninth";
-                }
-                if(m_resultCount2 == 9) {
-                    m_resultCountFinal = "tenth";
-                }
-                if(m_resultCount2 == 10) {
-                    m_resultCountFinal = "eleventh";
-                }
-                if(m_resultCount2 == 11) {
-                    m_resultCountFinal = "twelfth";
-                }
-                if(m_resultCount2 == 12) {
-                    m_resultCountFinal = "thirteenth";
-                }if(m_resultCount2 == 13) {
-                    m_resultCountFinal = "fourteenth";
-                }if(m_resultCount2 == 14) {
-                    m_resultCountFinal = "fifteenth";
-                }
 
-                m_test.add(m_resultCountFinal);
                 m_resultLetter = String.valueOf( (char) (m_resultCount + 1));
                 if (m_resultCount2 < s_ResultList.size()) {
                     readOutChoice(m_resultCount2);
@@ -887,6 +829,27 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     // Functionality for taps of the "Get Directions" button
     public void getDirections() {
+        if(geoCoordinate1 == null) {
+            timer = new Timer();
+
+            // This timer task will be executed every 1 sec.
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                                if (geoCoordinate1 == null) {
+                                    getPosition();
+                                } else {
+                                    timer.cancel();
+                                }
+                        }
+                    });
+
+                }
+            }, 0, 1000);
+        }
         if (geoCoordinate != null && geoCoordinate1 != null) {
             // 1. clear previous results
             if (m_map != null && mapRoute != null) {
@@ -954,7 +917,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                         if(s_ResultList != null) {
                                             Log.e(TAG, s_ResultList.get(0).getTitle());
                                         }
-
                                         if (m_firstManeuver.contains("LEFT") || m_firstManeuver.contains("left")) {
                                             m_firstManeuverAudioFinal = "Turn left";
                                             if(!m_nextRoadName.isEmpty()) {
@@ -1003,16 +965,16 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                         if(pairedDevices.contains(mmDevice)) {
                                             try {
                                                 if (m_firstManeuver.contains("LEFT") || m_firstManeuver.contains("left")) {
-                                                    sendData("2");
+                                                    sendData(2);
                                                 }
                                                 if (m_firstManeuver.contains("RIGHT") || m_firstManeuver.contains("right")) {
-                                                    sendData("3");
+                                                    sendData(3);
                                                 }
                                                 if (m_firstManeuver.contains("UNDEFINED") || m_firstManeuver.contains("undefined")) {
-                                                    sendData("3");
+                                                    sendData(3);
                                                 }
                                                 if (m_firstManeuver.contains("NO") || m_firstManeuver.contains("no")) {
-                                                    sendData("1");
+                                                    sendData(1);
                                                 }
                                             } catch (IOException e) {
                                                 e.printStackTrace();
@@ -1057,7 +1019,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
          * by calling either simulate() or startTracking()
          */
             m_navigationManager.startNavigation(route);
-            m_navigationManager.simulate(route, 30);
         /*
          * Set the map update mode to ROADVIEW.This will enable the automatic map movement based on
          * the current location.If user gestures are expected during the navigation, it's
@@ -1232,17 +1193,20 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                     m_NextDistance = String.valueOf(maneuver.getDistanceFromPreviousManeuver());
                     if(pairedDevices.contains(mmDevice)) {
                         try {
+
+                            sendData(maneuver.getAngle());
+
                             if (m_nextTurn.contains("LEFT") || m_nextTurn.contains("left")) {
-                                sendData("2");
+                                sendData(2);
                             }
                             if (m_nextTurn.contains("RIGHT") || m_nextTurn.contains("right")) {
-                                sendData("3");
+                                sendData(3);
                             }
                             if (m_nextTurn.contains("UNDEFINED") || m_nextTurn.contains("undefined")) {
-                                sendData("4");
+                                sendData(3);
                             }
                             if (m_nextTurn.contains("NO") || m_nextTurn.contains("no")) {
-                                sendData("1");
+                                sendData(1);
                             }
                         } catch (IOException ex) {
                             Toast.makeText(MainActivity.this, "Error sending data", Toast.LENGTH_SHORT).show();
@@ -1445,7 +1409,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             }
 
         } else if (m_LocationChoose) {
-            if (m_test.contains(result)) {
+            if (result.contains("First") || result.contains("first") || result.contains("Second") || result.contains("second") || result.contains("Third") || result.contains("third")) {
 
                 findViewById(R.id.assistant_background).setVisibility(View.INVISIBLE);
 
@@ -1470,7 +1434,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                 m_LocationChoose = false;
             } else {
                 m_voiceCount = 5;
-                Speech.getInstance().say("Please repeat your choice", new TextToSpeechCallback() {
+                Speech.getInstance().say("Please choose between the first, second and third option", new TextToSpeechCallback() {
                     @Override
                     public void onStart() {
 
@@ -1722,12 +1686,12 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         workerThread.start();
     }
 
-    void sendData(String i) throws IOException {
+    void sendData(int i) throws IOException {
         //mmOutputStream.write(msg.getBytes());
-        byte[] buffer = i.getBytes();
+
         try {
             mmOutputStream = mmSocket.getOutputStream();
-            mmOutputStream.write(buffer);
+            mmOutputStream.write(i);
             Log.d("message", i + " sent");
             Toast.makeText(MainActivity.this, "Data sent", Toast.LENGTH_LONG).show();
         } catch (IOException e) {
