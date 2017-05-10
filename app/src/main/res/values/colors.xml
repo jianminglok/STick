@@ -11,4 +11,6 @@
     <color name="secondary_text">#FFFFFF</color>
     <color name="icons">#FFFFFF</color>
     <color name="divider">#B6B6B6</color>
+    <color name="color_canteen">#fdfdfd</color>
+    <color name="color_dark_canteen">#ebeef0</color>
 </resources>

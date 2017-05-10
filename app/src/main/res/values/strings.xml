@@ -20,4 +20,16 @@
     <string name="yes">Yes</string>
     <string name="no">No</string>
 
+    <string name="action_manifestactivity">Manifest Activity</string>
+    <string name="action_extendactivity">Extended Activity</string>
+    <string name="action_customsortactivity">Custom Sort Activity</string>
+    <string name="action_customactivity">Custom Activity</string>
+
+    <string name="action_all">(Cust) All Libraries</string>
+    <string name="action_internal">(Cust) Internal Libraries</string>
+    <string name="action_external">(Cust) External Libraries</string>
+    <string name="action_defined">(Cust) Defined Libraries</string>
+
+    <string name="action_opensource">Open Source</string>
+
 </resources>

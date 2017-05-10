@@ -27,6 +27,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
@@ -34,6 +35,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -70,6 +72,16 @@ import com.here.android.mpa.search.ErrorCode;
 import com.here.android.mpa.search.PlaceLink;
 import com.here.android.mpa.search.ResultListener;
 import com.here.android.mpa.search.SearchRequest;
+import com.mikepenz.fastadapter.commons.utils.RecyclerViewCacheUtil;
+import com.mikepenz.google_material_typeface_library.GoogleMaterial;
+import com.mikepenz.itemanimators.AlphaCrossFadeAnimator;
+import com.mikepenz.materialdrawer.AccountHeader;
+import com.mikepenz.materialdrawer.AccountHeaderBuilder;
+import com.mikepenz.materialdrawer.Drawer;
+import com.mikepenz.materialdrawer.DrawerBuilder;
+import com.mikepenz.materialdrawer.model.DividerDrawerItem;
+import com.mikepenz.materialdrawer.model.PrimaryDrawerItem;
+import com.mikepenz.materialdrawer.model.interfaces.IDrawerItem;
 
 import net.gotev.speech.DelayedOperation;
 import net.gotev.speech.GoogleVoiceTypingDisabledException;
@@ -97,6 +109,7 @@ import java.util.TimerTask;
 import java.util.UUID;
 
 import im.delight.android.location.SimpleLocation;
+import lokjianming.stick.databinding.ActivityMainBinding;
 
 public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     private final static int REQUEST_CODE_ASK_PERMISSIONS = 1;
@@ -106,6 +119,8 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     private PositioningManager.OnPositionChangedListener positionListener;
 
     private int m_routeLength;
+
+    private String m_proceedData;
 
     private BluetoothSocket mmSocket;
     private BluetoothDevice mmDevice;
@@ -190,6 +205,11 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     public Timer timer;
 
     public Timer timer2;
+    ArrayList<String> results;
+
+    //save our header or result
+    private AccountHeader headerResult = null;
+    private Drawer drawer = null;
 
     public Boolean paused;
 
@@ -197,30 +217,117 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     private static final String VOICE_LANG_CODE_ALT = "es-ES";
     private static final String VOICE_MARC_CODE = "eng";
 
+    public static final String PREF_KEY_FIRST_START = "lokjianming.stick.PREF_KEY_FIRST_START";
+    public static final int REQUEST_CODE_INTRO = 1;
+
+    private ActivityMainBinding binding;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        requestPermissions();
+        Toolbar toolbar = (Toolbar) findViewById(R.id.my_toolbar);
+
+        setSupportActionBar(toolbar);
+
+        boolean firstStart = PreferenceManager.getDefaultSharedPreferences(this)
+                .getBoolean(PREF_KEY_FIRST_START, true);
+
+        if (firstStart) {
+            requestPermissions();
+            Intent intent = new Intent(this, Intro.class);
+            startActivityForResult(intent, REQUEST_CODE_INTRO);
+
+        } else {
+            initMapFragment();
+            downloadVoiceCatalog();
+        }
+
+        // Create the AccountHeader
+        headerResult = new AccountHeaderBuilder()
+                .withActivity(this)
+                .withTranslucentStatusBar(true)
+                .withHeaderBackground(R.drawable.black)
+                .withSavedInstance(savedInstanceState)
+                .build();
 
 
-        initMapFragment();
+        drawer = new DrawerBuilder()
+                .withActivity(this)
+                .withToolbar(toolbar)
+                .withAccountHeader(headerResult)
+                .withItemAnimator(new AlphaCrossFadeAnimator())
+                .addDrawerItems(
+                        new PrimaryDrawerItem().withName("Home").withIcon(GoogleMaterial.Icon.gmd_home).withIdentifier(1).withSelectable(true),
+                        new PrimaryDrawerItem().withName("Settings").withIcon(GoogleMaterial.Icon.gmd_settings).withIdentifier(2).withSelectable(true),
+                        new DividerDrawerItem(),
+                        new PrimaryDrawerItem().withName("About this app").withIcon(GoogleMaterial.Icon.gmd_info).withIdentifier(3).withSelectable(true)
+                )// add the items we want to use with our Drawer
+                .withOnDrawerItemClickListener(new Drawer.OnDrawerItemClickListener() {
+                    @Override
+                    public boolean onItemClick(View view, int position, IDrawerItem drawerItem) {
+                        //check if the drawerItem is set.
+                        //there are different reasons for the drawerItem to be null
+                        //--> click on the header
+                        //--> click on the footer
+                        //those items don't contain a drawerItem
 
-        /*
-         * The map fragment is not required for executing search requests. However in this example,
-         * we will put some markers on the map to visualize the location of the search results.
-         */
+                        if (drawerItem != null) {
+                            Intent intent = null;
+                            if (drawerItem.getIdentifier() == 1) {
+                                drawer.setSelection(1, false);
+                                intent = new Intent(MainActivity.this, MainActivity.class);
+                            } else if (drawerItem.getIdentifier() == 2) {
+                                drawer.setSelection(2, false);
+                                intent = new Intent(MainActivity.this, Settings.class);
+                            } else if (drawerItem.getIdentifier() == 3) {
+                                drawer.setSelection(3, false);
+                                intent = new Intent(MainActivity.this, About.class);
+                            }
+                            if (intent != null) {
+                                MainActivity.this.startActivity(intent);
+                            }
+                        }
 
-        initSearchControlButtons();
-        /* We use a list view to present the search results */
-        initResultListButton();
+                        return false;
+                    }
+                })
+                .withSavedInstance(savedInstanceState)
+                .build();
 
-        downloadVoiceCatalog();
+        //only set the active selection or active profile if we do not recreate the activity
+        if (savedInstanceState == null) {
+            // set the selection to the item with the identifier 3 (About)
+            drawer.setSelection(1, false);
+        }
+
+        //if you have many different types of DrawerItems you can magically pre-cache those items to get a better scroll performance
+        //make sure to init the cache after the DrawerBuilder was created as this will first clear the cache to make sure no old elements are in
+        //RecyclerViewCacheUtil.getInstance().withCacheSize(2).init(result);
+        new RecyclerViewCacheUtil<IDrawerItem>().withCacheSize(2).apply(drawer.getRecyclerView(), drawer.getDrawerItems());
 
         TextView modelTextview = (TextView) findViewById(R.id.start);
-        TextView modelTextview2 = (TextView) findViewById(R.id.destination);
 
+    }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_INTRO) {
+            if (resultCode == RESULT_OK) {
+                PreferenceManager.getDefaultSharedPreferences(this).edit()
+                        .putBoolean(PREF_KEY_FIRST_START, false)
+                        .apply();
+                initMapFragment();
+                downloadVoiceCatalog();
+            } else {
+                PreferenceManager.getDefaultSharedPreferences(this).edit()
+                        .putBoolean(PREF_KEY_FIRST_START, true)
+                        .apply();
+                //User cancelled the intro so we'll finish this activity too.
+                finish();
+            }
+        }
     }
 
     /**
@@ -251,7 +358,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             case REQUEST_CODE_ASK_PERMISSIONS: {
                 for (int index = 0; index < permissions.length; index++) {
                     if (grantResults[index] != PackageManager.PERMISSION_GRANTED) {
-
                         /**
                          * If the user turned down the permission request in the past and chose the
                          * Don't ask again option in the permission request system dialog.
@@ -314,6 +420,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         catch (IOException ex) {}
         m_LargeCount = false;
         m_voiceCount = 5;
+        m_proceedData = null;
         m_VoiceSet = false;
         m_VoiceSet2 = false;
         m_VoiceSet3 = false;
@@ -353,7 +460,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                         getPosition();
 
-                        if(getIntent().getData() == null) {
+                        if(getIntent().getData() == null && pairedDevices.contains(mmDevice)) {
                             findViewById(R.id.assistant_background).setVisibility(View.VISIBLE);
                             Log.e(TAG, "this is null");
 
@@ -375,6 +482,23 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                     } catch (GoogleVoiceTypingDisabledException exc) {
                                         showEnableGoogleVoiceTyping();
                                     }
+                                }
+
+                                @Override
+                                public void onError() {
+
+                                }
+                            });
+                        } else {
+                            Speech.getInstance().say("Please pair your phone with STick first", new TextToSpeechCallback() {
+                                @Override
+                                public void onStart() {
+
+                                }
+
+                                @Override
+                                public void onCompleted() {
+
                                 }
 
                                 @Override
@@ -541,27 +665,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         PositioningManager.getInstance().start(PositioningManager.LocationMethod.GPS_NETWORK);
     }
 
-
-
-
-    private void initResultListButton() {
-        m_placeDetailButton = (Button) findViewById(R.id.resultListBtn);
-        m_placeDetailButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                /* Open the ResultListActivity */
-                Intent intent = new Intent(MainActivity.this, ResultListActivity.class);
-                startActivity(intent);
-            }
-        });
-    }
-
-    private void initSearchControlButtons() {
-
-
-    }
-
-
     public void cleanMap() {
         if (!m_mapObjectList.isEmpty()) {
             m_map.removeMapObjects(m_mapObjectList);
@@ -573,10 +676,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         @Override
         public void onCompleted(DiscoveryResultPage discoveryResultPage, ErrorCode errorCode) {
             if (errorCode == ErrorCode.NONE) {
-
-
-                /* No error returned,let's handle the results */
-                m_placeDetailButton.setVisibility(View.VISIBLE);
 
                 /*
                  * The result is a DiscoveryResultPage object which represents a paginated
@@ -637,7 +736,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                                     Log.e(TAG, "the distance list contains all " + s_DistanceList.toString());
 
-                                    if (Arrays.asList(arrayList).contains(d.intValue())) {
+                                    if (Arrays.asList(arrayList).contains(d.intValue()) && d.intValue() < 20000) {
                                         Log.e(TAG, item.getTitle());
 
                                         Log.e(TAG, "the distance list contains lowest three " + Arrays.toString(arrayList));
@@ -709,77 +808,77 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         Log.e(TAG, "the value is " + String.valueOf(s_ResultList.size()));
 
 
-            if (s_ResultList.size() == 1  || m_LocationChoose2) {
-                Log.e(TAG, "the value is 1");
-                getDirections();
-            }
+        if (s_ResultList.size() == 1  || m_LocationChoose2) {
+            Log.e(TAG, "the value is 1");
+            getDirections();
+        }
 
-            if (s_ResultList.size() > 1 && !m_LocationChoose2) {
-                findViewById(R.id.assistant_background).setVisibility(View.VISIBLE);
-                m_LocationChoose = true;
+        if (s_ResultList.size() > 1 && !m_LocationChoose2) {
+            findViewById(R.id.assistant_background).setVisibility(View.VISIBLE);
+            m_LocationChoose = true;
 
-                Speech.getInstance().say("Please chooose from the following options", new TextToSpeechCallback() {
-                    @Override
-                    public void onStart() {
+            Speech.getInstance().say("Please chooose from the following options", new TextToSpeechCallback() {
+                @Override
+                public void onStart() {
 
+                }
+
+                @Override
+                public void onCompleted() {
+
+                    m_resultLetter = "A";
+                    m_resultCount = m_resultLetter.charAt(0);
+                    m_resultCount2 = 0;
+
+                    if (m_resultCount2 == 0) {
+                        m_resultCountFinal = "first";
+                    }
+                    if (m_resultCount2 == 1) {
+                        m_resultCountFinal = "second";
+                    }
+                    if (m_resultCount2 == 2) {
+                        m_resultCountFinal = "third";
                     }
 
-                    @Override
-                    public void onCompleted() {
+                    Speech.getInstance().say(m_resultCountFinal + "option " + "," + s_ResultList.get(m_resultCount2).getTitle() + "," + s_ResultList.get(m_resultCount2).getVicinity().replace("<br/>", ", "), new TextToSpeechCallback() {
+                        @Override
+                        public void onStart() {
 
-                        m_resultLetter = "A";
-                        m_resultCount = m_resultLetter.charAt(0);
-                        m_resultCount2 = 0;
-
-                        if (m_resultCount2 == 0) {
-                            m_resultCountFinal = "first";
-                        }
-                        if (m_resultCount2 == 1) {
-                            m_resultCountFinal = "second";
-                        }
-                        if (m_resultCount2 == 2) {
-                            m_resultCountFinal = "third";
                         }
 
-                        Speech.getInstance().say(m_resultCountFinal + "option " + "," + s_ResultList.get(m_resultCount2).getTitle() + "," + s_ResultList.get(m_resultCount2).getVicinity().replace("<br/>", ", "), new TextToSpeechCallback() {
-                            @Override
-                            public void onStart() {
+                        @Override
+                        public void onCompleted() {
+                            m_resultLetter = String.valueOf((char) (m_resultCount + 1));
+                            m_resultCount2 = m_resultCount2 + 1;
 
+                            if (m_resultCount2 == 0) {
+                                m_resultCountFinal = "first";
+                            }
+                            if (m_resultCount2 == 1) {
+                                m_resultCountFinal = "second";
+                            }
+                            if (m_resultCount2 == 2) {
+                                m_resultCountFinal = "third";
                             }
 
-                            @Override
-                            public void onCompleted() {
-                                m_resultLetter = String.valueOf((char) (m_resultCount + 1));
-                                m_resultCount2 = m_resultCount2 + 1;
-
-                                if (m_resultCount2 == 0) {
-                                    m_resultCountFinal = "first";
-                                }
-                                if (m_resultCount2 == 1) {
-                                    m_resultCountFinal = "second";
-                                }
-                                if (m_resultCount2 == 2) {
-                                    m_resultCountFinal = "third";
-                                }
-
-                                if (s_ResultList.get(m_resultCount2).getTitle() != null) {
-                                    readOutChoice(m_resultCount2);
-                                }
+                            if (s_ResultList.get(m_resultCount2).getTitle() != null) {
+                                readOutChoice(m_resultCount2);
                             }
+                        }
 
-                            @Override
-                            public void onError() {
+                        @Override
+                        public void onError() {
 
-                            }
-                        });
-                    }
+                        }
+                    });
+                }
 
 
-                    @Override
-                    public void onError() {
+                @Override
+                public void onError() {
 
-                    }
-                });
+                }
+            });
 
 
         }
@@ -839,11 +938,11 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                                if (geoCoordinate1 == null) {
-                                    getPosition();
-                                } else {
-                                    timer.cancel();
-                                }
+                            if (geoCoordinate1 == null) {
+                                getPosition();
+                            } else {
+                                timer.cancel();
+                            }
                         }
                     });
 
@@ -928,7 +1027,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                             if(!m_nextRoadName.isEmpty()) {
                                                 m_firstManeuverAudioFinal = m_firstManeuverAudio + "into" + m_nextRoadName;
                                             }
-                                    }
+                                        }
                                         if (m_firstManeuver.contains("UNDEFINED") || m_firstManeuver.contains("undefined")) {
                                             m_firstManeuverAudioFinal = "Make a u-turn";
                                             if(!m_nextRoadName.isEmpty()) {
@@ -945,40 +1044,60 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                         Toast.makeText(MainActivity.this, "Nothing wrong with first maneuver", Toast.LENGTH_LONG).show();
 
                                         Speech.getInstance().say(m_firstManeuverAudioFinal, new TextToSpeechCallback() {
-                                                    @Override
-                                                    public void onStart() {
+                                            @Override
+                                            public void onStart() {
 
-                                                    }
+                                            }
 
-                                                    @Override
-                                                    public void onCompleted() {
-                                                        startNavigation(m_route);
-                                                    }
+                                            @Override
+                                            public void onCompleted() {
+                                                startNavigation(m_route);
+                                            }
 
-                                                    @Override
-                                                    public void onError() {
+                                            @Override
+                                            public void onError() {
 
-                                                    }
-                                                });
+                                            }
+                                        });
 
 
                                         if(pairedDevices.contains(mmDevice)) {
-                                            try {
-                                                if (m_firstManeuver.contains("LEFT") || m_firstManeuver.contains("left")) {
-                                                    sendData(2);
+                                            timer = new Timer();
+
+                                            // This timer task will be executed every 1 sec.
+                                            timer.schedule(new TimerTask() {
+                                                @Override
+                                                public void run() {
+                                                    runOnUiThread(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            if(!m_proceedData.isEmpty() && m_proceedData.equals("ok") ) {
+                                                                timer.cancel();
+                                                            } else {
+                                                                try {
+                                                                    sendData(m_route.getFirstManeuver().getAngle());
+                                                                    if (m_firstManeuver.contains("LEFT") || m_firstManeuver.contains("left")) {
+                                                                        sendData(2);
+                                                                    }
+                                                                    if (m_firstManeuver.contains("RIGHT") || m_firstManeuver.contains("right")) {
+                                                                        sendData(3);
+                                                                    }
+                                                                    if (m_firstManeuver.contains("UNDEFINED") || m_firstManeuver.contains("undefined")) {
+                                                                        sendData(3);
+                                                                    }
+                                                                    if (m_firstManeuver.contains("NO") || m_firstManeuver.contains("no")) {
+                                                                        sendData(1);
+                                                                    }
+                                                                } catch (IOException e) {
+                                                                    e.printStackTrace();
+                                                                }
+                                                            }
+                                                        }
+                                                    });
+
                                                 }
-                                                if (m_firstManeuver.contains("RIGHT") || m_firstManeuver.contains("right")) {
-                                                    sendData(3);
-                                                }
-                                                if (m_firstManeuver.contains("UNDEFINED") || m_firstManeuver.contains("undefined")) {
-                                                    sendData(3);
-                                                }
-                                                if (m_firstManeuver.contains("NO") || m_firstManeuver.contains("no")) {
-                                                    sendData(1);
-                                                }
-                                            } catch (IOException e) {
-                                                e.printStackTrace();
-                                            }
+                                            }, 0, 1000);
+
                                         }
                                     } else {
                                         startNavigation(m_route);
@@ -1019,6 +1138,13 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
          * by calling either simulate() or startTracking()
          */
             m_navigationManager.startNavigation(route);
+            if(!String.valueOf(m_testresult).isEmpty()) {
+                String newString = s_ResultList.get(m_testresult).getTitle();
+            } else {
+                String newString = s_ResultList.get(0).getTitle();
+            }
+            origin.setText("Selected Destination: " + newString);
+            m_navigationManager.simulate(m_route, 20);
         /*
          * Set the map update mode to ROADVIEW.This will enable the automatic map movement based on
          * the current location.If user gestures are expected during the navigation, it's
@@ -1180,10 +1306,33 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             final Maneuver maneuver = m_navigationManager.getNextManeuver();
             if (maneuver != null) {
                 if (maneuver.getAction() == Maneuver.Action.END) {
-                    Toast.makeText(MainActivity.this, "Route completed", Toast.LENGTH_SHORT).show();
-                    ttobj.speak(String.valueOf(Maneuver.Action.END), TextToSpeech.QUEUE_FLUSH, null);
+                    timer = new Timer();
+
+                    // This timer task will be executed every 1 sec.
+                    timer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if(!m_proceedData.isEmpty() && m_proceedData.equals("ok")) {
+                                        timer.cancel();
+                                    } else {
+                                        try {
+                                            sendData(4);
+                                            Toast.makeText(MainActivity.this, "Route completed", Toast.LENGTH_SHORT).show();
+                                            ttobj.speak(String.valueOf(Maneuver.Action.END), TextToSpeech.QUEUE_FLUSH, null);
+                                        } catch (IOException ex) {
+                                            Toast.makeText(MainActivity.this, "Error sending data", Toast.LENGTH_SHORT).show();
+                                        }
+                                    }
+                                }
+                            });
+
+                        }
+                    }, 0, 1000);
                 } else {
-                    Log.e(TAG, String.valueOf(maneuver.getAngle()));
+                    Log.e(TAG, "The angle is " + String.valueOf(maneuver.getAngle()));
                     Log.e(TAG, String.valueOf(maneuver.getNextRoadName()));
                     Log.e(TAG, String.valueOf(maneuver.getDistanceToNextManeuver()));
                     Log.e(TAG, String.valueOf(maneuver.getTurn()));
@@ -1191,27 +1340,43 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                     m_nextRoadName = String.valueOf(maneuver.getNextRoadName());
                     m_nextTurn = String.valueOf(maneuver.getTurn());
                     m_NextDistance = String.valueOf(maneuver.getDistanceFromPreviousManeuver());
-                    if(pairedDevices.contains(mmDevice)) {
-                        try {
+                    timer = new Timer();
 
-                            sendData(maneuver.getAngle());
+                    // This timer task will be executed every 1 sec.
+                    timer.schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    if(!m_proceedData.isEmpty() && m_proceedData.equals("ok")) {
+                                        if(pairedDevices.contains(mmDevice)) {
+                                            try {
 
-                            if (m_nextTurn.contains("LEFT") || m_nextTurn.contains("left")) {
-                                sendData(2);
-                            }
-                            if (m_nextTurn.contains("RIGHT") || m_nextTurn.contains("right")) {
-                                sendData(3);
-                            }
-                            if (m_nextTurn.contains("UNDEFINED") || m_nextTurn.contains("undefined")) {
-                                sendData(3);
-                            }
-                            if (m_nextTurn.contains("NO") || m_nextTurn.contains("no")) {
-                                sendData(1);
-                            }
-                        } catch (IOException ex) {
-                            Toast.makeText(MainActivity.this, "Error sending data", Toast.LENGTH_SHORT).show();
+                                                sendData(maneuver.getAngle());
+
+                                                if (m_nextTurn.contains("LEFT") || m_nextTurn.contains("left")) {
+                                                    sendData(2);
+                                                }
+                                                if (m_nextTurn.contains("RIGHT") || m_nextTurn.contains("right")) {
+                                                    sendData(3);
+                                                }
+                                                if (m_nextTurn.contains("UNDEFINED") || m_nextTurn.contains("undefined")) {
+                                                    sendData(3);
+                                                }
+                                                if (m_nextTurn.contains("NO") || m_nextTurn.contains("no")) {
+                                                    sendData(1);
+                                                }
+                                            } catch (IOException ex) {
+                                                Toast.makeText(MainActivity.this, "Error sending data", Toast.LENGTH_SHORT).show();
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+
                         }
-                    }
+                    }, 0, 1000);
 
                 }
 
@@ -1298,6 +1463,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     @Override
     public void onStartOfSpeech() {
+        origin.setText("Waiting for input");
         Log.i("speech", "speech recognition is now active");
     }
 
@@ -1454,7 +1620,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
         } else {
             if (m_VoiceDestination.equals("") && !result.equals("Yes") && !result.equals("No") && !m_VoiceSet2 && !m_VoiceSet3) {
-                origin.setText("Result:" + result);
+                origin.setText("Selected Destination: " + result);
                 m_VoiceDestination = result;
                 if (!m_VoiceDestination.equals("")) {
                     Speech.getInstance().say("The destination you have selected is " + result + " ,is that correct?", new TextToSpeechCallback() {
@@ -1478,7 +1644,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
             }
 
             if (result.equals("yes") && !m_VoiceDestination.equals("") && !m_VoiceSet2 || result.equals("Yes") && !m_VoiceDestination.equals("") && !m_VoiceSet2) {
-                origin.setText("Result:" + result);
+                origin.setText("Choice: " + result);
                 m_VoiceSet = false;
                 m_VoiceSet3 = false;
                 m_voiceCount = 5;
@@ -1492,7 +1658,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                 searchRequest2.execute(new SearchRequestListener());
             }
             if (result.equals("no") && !m_VoiceDestination.equals("") && !m_VoiceSet2 || result.equals("No") && !m_VoiceDestination.equals("") && !m_VoiceSet2) {
-                origin.setText("Result:" + result);
+                origin.setText("Choice: " + result);
                 m_VoiceDestination = "";
                 m_VoiceSet = false;
                 Speech.getInstance().say("Please choose your new destination", new TextToSpeechCallback() {
@@ -1664,6 +1830,8 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                     final String data = new String(encodedBytes, "US-ASCII");
                                     readBufferPosition = 0;
 
+                                    m_proceedData = data;
+
                                     handler.post(new Runnable() {
                                         public void run() {
                                             Toast.makeText(MainActivity.this, data, Toast.LENGTH_SHORT).show();
@@ -1688,7 +1856,6 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     void sendData(int i) throws IOException {
         //mmOutputStream.write(msg.getBytes());
-
         try {
             mmOutputStream = mmSocket.getOutputStream();
             mmOutputStream.write(i);
@@ -1711,11 +1878,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     @Override
     public void onSpeechPartialResults(List<String> results) {
-        origin.setText("Partial: ");
-        for (String partial : results) {
-            origin.append(partial + " ");
-        }
-
+        origin.setText("Analyzing");
     }
 
 
@@ -1757,5 +1920,15 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     protected void onDestroy() {
         super.onDestroy();
         Speech.getInstance().unregisterDelegate();
+    }
+
+    @Override
+    public void onBackPressed() {
+        //handle the back press :D close the drawer first and if the drawer is closed close the activity
+        if (drawer != null && drawer.isDrawerOpen()) {
+            drawer.closeDrawer();
+        } else {
+            super.onBackPressed();
+        }
     }
 }
