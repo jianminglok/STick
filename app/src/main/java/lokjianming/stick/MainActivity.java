@@ -20,6 +20,7 @@ import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -420,7 +421,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         catch (IOException ex) {}
         m_LargeCount = false;
         m_voiceCount = 5;
-        m_proceedData = null;
+        m_proceedData = "";
         m_VoiceSet = false;
         m_VoiceSet2 = false;
         m_VoiceSet3 = false;
@@ -498,7 +499,13 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                                 @Override
                                 public void onCompleted() {
-
+                                    final Intent intent = new Intent(Intent.ACTION_MAIN, null);
+                                    intent.addCategory(Intent.CATEGORY_LAUNCHER);
+                                    ComponentName cn = new ComponentName("com.android.settings",
+                                            "com.android.settings.bluetooth.BluetoothSettings");
+                                    intent.setComponent(cn);
+                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity( intent);
                                 }
 
                                 @Override
@@ -1075,18 +1082,18 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                                                 timer.cancel();
                                                             } else {
                                                                 try {
-                                                                    sendData(m_route.getFirstManeuver().getAngle());
+                                                                    sendData(String.valueOf(m_route.getFirstManeuver().getAngle()));
                                                                     if (m_firstManeuver.contains("LEFT") || m_firstManeuver.contains("left")) {
-                                                                        sendData(2);
+                                                                        sendData("Lt");
                                                                     }
                                                                     if (m_firstManeuver.contains("RIGHT") || m_firstManeuver.contains("right")) {
-                                                                        sendData(3);
+                                                                        sendData("Rt");
                                                                     }
                                                                     if (m_firstManeuver.contains("UNDEFINED") || m_firstManeuver.contains("undefined")) {
-                                                                        sendData(3);
+                                                                        sendData("Rt");
                                                                     }
                                                                     if (m_firstManeuver.contains("NO") || m_firstManeuver.contains("no")) {
-                                                                        sendData(1);
+                                                                        sendData("FW");
                                                                     }
                                                                 } catch (IOException e) {
                                                                     e.printStackTrace();
@@ -1319,7 +1326,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                         timer.cancel();
                                     } else {
                                         try {
-                                            sendData(4);
+                                            sendData("St");
                                             Toast.makeText(MainActivity.this, "Route completed", Toast.LENGTH_SHORT).show();
                                             ttobj.speak(String.valueOf(Maneuver.Action.END), TextToSpeech.QUEUE_FLUSH, null);
                                         } catch (IOException ex) {
@@ -1353,19 +1360,19 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
                                         if(pairedDevices.contains(mmDevice)) {
                                             try {
 
-                                                sendData(maneuver.getAngle());
+                                                sendData(String.valueOf(maneuver.getAngle()));
 
                                                 if (m_nextTurn.contains("LEFT") || m_nextTurn.contains("left")) {
-                                                    sendData(2);
+                                                    sendData("Lt");
                                                 }
                                                 if (m_nextTurn.contains("RIGHT") || m_nextTurn.contains("right")) {
-                                                    sendData(3);
+                                                    sendData("Rt");
                                                 }
                                                 if (m_nextTurn.contains("UNDEFINED") || m_nextTurn.contains("undefined")) {
-                                                    sendData(3);
+                                                    sendData("Rt");
                                                 }
                                                 if (m_nextTurn.contains("NO") || m_nextTurn.contains("no")) {
-                                                    sendData(1);
+                                                    sendData("Fw");
                                                 }
                                             } catch (IOException ex) {
                                                 Toast.makeText(MainActivity.this, "Error sending data", Toast.LENGTH_SHORT).show();
@@ -1854,11 +1861,12 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         workerThread.start();
     }
 
-    void sendData(int i) throws IOException {
+    void sendData(String i) throws IOException {
         //mmOutputStream.write(msg.getBytes());
+        byte[] buffer = i.getBytes();
         try {
             mmOutputStream = mmSocket.getOutputStream();
-            mmOutputStream.write(i);
+            mmOutputStream.write(buffer);
             Log.d("message", i + " sent");
             Toast.makeText(MainActivity.this, "Data sent", Toast.LENGTH_LONG).show();
         } catch (IOException e) {
