@@ -123,6 +123,8 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     private String m_proceedData;
 
+    private boolean m_exit;
+
     private BluetoothSocket mmSocket;
     private BluetoothDevice mmDevice;
     private OutputStream mmOutputStream;
@@ -225,6 +227,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        m_exit = false;
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Toolbar toolbar = (Toolbar) findViewById(R.id.my_toolbar);
@@ -461,7 +464,7 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
 
                         getPosition();
 
-                        if(getIntent().getData() == null && pairedDevices.contains(mmDevice)) {
+                        if(getIntent().getData() == null) {
                             findViewById(R.id.assistant_background).setVisibility(View.VISIBLE);
                             Log.e(TAG, "this is null");
 
@@ -571,24 +574,23 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
     public void onResume() {
         super.onResume();
         paused = false;
-        if (positioningManager != null) {
-            positioningManager.start(
-                    PositioningManager.LocationMethod.GPS_NETWORK);
-            if (positioningManager.hasValidPosition(PositioningManager.LocationMethod.GPS_NETWORK)) {
-                Log.e(TAG, "still got position");
-            } else {
-                getPosition();
-            }
+        if(positioningManager != null) {
+            getPosition();
+        }
+        if(m_navigationManager != null) {
+            m_navigationManager.resume();
         }
     }
 
     // To pause positioning listener
     @Override
     public void onPause() {
-        if (positioningManager != null) {
-            positioningManager.stop();
-        } else {
-            Log.e(TAG, "This is what that's not working");
+        if(ttobj != null && ttobj2 != null) {
+            ttobj.stop();
+            ttobj2.stop();
+        }
+        if(m_navigationManager != null) {
+            m_navigationManager.pause();
         }
         super.onPause();
         paused = true;
@@ -1145,13 +1147,16 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
          * by calling either simulate() or startTracking()
          */
             m_navigationManager.startNavigation(route);
-            if(!String.valueOf(m_testresult).isEmpty()) {
-                String newString = s_ResultList.get(m_testresult).getTitle();
+            m_navigationManager.simulate(route, 30);
+            if(m_LocationChoose2) {
+                String newString = "Selected destination: " + s_ResultList.get(m_testresult).getTitle();
+                origin.setText(newString);
             } else {
-                String newString = s_ResultList.get(0).getTitle();
+                String newString = "Selected destination: " + s_ResultList.get(0).getTitle();
+                origin.setText(newString);
             }
-            origin.setText("Selected Destination: " + newString);
-            m_navigationManager.simulate(m_route, 20);
+
+
         /*
          * Set the map update mode to ROADVIEW.This will enable the automatic map movement based on
          * the current location.If user gestures are expected during the navigation, it's
@@ -1935,6 +1940,34 @@ public class MainActivity extends AppCompatActivity implements SpeechDelegate {
         //handle the back press :D close the drawer first and if the drawer is closed close the activity
         if (drawer != null && drawer.isDrawerOpen()) {
             drawer.closeDrawer();
+        } else if(m_route != null && m_navigationManager.getRoadView() != null) {
+            Speech.getInstance().say("Would you like to exit navigation?", new TextToSpeechCallback() {
+                @Override
+                public void onStart() {
+
+                }
+
+                @Override
+                public void onCompleted() {
+                    try {
+                        Speech.getInstance().startListening(progress, MainActivity.this);
+                        Speech.getInstance().setStopListeningAfterInactivity(100000);
+                        Speech.getInstance().setTransitionMinimumDelay(2000);
+                    } catch (SpeechRecognitionNotAvailable exc) {
+                        showSpeechNotSupportedDialog();
+
+                    } catch (GoogleVoiceTypingDisabledException exc) {
+                        showEnableGoogleVoiceTyping();
+                    }
+                    m_exit = true;
+                }
+
+                @Override
+                public void onError() {
+
+                }
+            });
+
         } else {
             super.onBackPressed();
         }
