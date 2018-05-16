@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">STick</string>
+    <string name="label_button_getdirections">
+      Get Directions
+    </string>
+        <string name="textview_routecoordinates_2waypoints">
+      Press "Get Directions" button to calculate a route:\nStart: Burnaby\nEnd: YVR Airport
+    </string>
+    <string name="search_add">Search Address here !!! </string>
+    <string name="start_listening">Start listening</string>
+    <string name="stop_listening">Stop listening</string>
+    <string name="say_something">Say</string>
+    <string name="introduction">Tap on one of the buttons to try an action</string>
+    <string name="tts_hint">Write something to speech</string>
+    <string name="repeat">Repeat please</string>
+    <string name="input_something">Please input something to speak!</string>
+    <string name="speech_not_available">Speech recognition is not available on this device. Do you want to install Google app to have speech recognition?</string>
+    <string name="permission_required">You need to grant the permission to use the microphone</string>
+    <string name="enable_google_voice_typing">Please enable Google Voice Typing to use speech recognition!</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+
+    <string name="action_manifestactivity">Manifest Activity</string>
+    <string name="action_extendactivity">Extended Activity</string>
+    <string name="action_customsortactivity">Custom Sort Activity</string>
+    <string name="action_customactivity">Custom Activity</string>
+
+    <string name="action_all">(Cust) All Libraries</string>
+    <string name="action_internal">(Cust) Internal Libraries</string>
+    <string name="action_external">(Cust) External Libraries</string>
+    <string name="action_defined">(Cust) Defined Libraries</string>
+
+    <string name="action_opensource">Open Source</string>
+
+</resources>
