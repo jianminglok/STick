@@ -408,7 +408,7 @@ public class Speech {
 
     }
 
-    private void unregisterDelegate() {
+    public void unregisterDelegate() {
         mDelegate = null;
         mProgressView = null;
     }
