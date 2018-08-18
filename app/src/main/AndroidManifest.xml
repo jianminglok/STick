@@ -9,13 +9,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.SEND_SMS" />
 
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:hardwareAccelerated="true"
         android:theme="@style/AppTheme">
@@ -67,23 +66,25 @@
         <!--Developers should put application credentials here.To obtain them, please register the application at developer.here.com-->
         <meta-data
             android:name="com.here.android.maps.appid"
-            android:value="fKd9mL7hx7XALMI9pl1u" />
+            android:value="Mgf8WVTqUsc5eRC39g4V" />
         <meta-data
             android:name="com.here.android.maps.apptoken"
-            android:value="6XqUNweQod6Tur1TsmbRnQ" />
+            android:value="JU6h_Oys3aJlu3yaRRY3mQ" />
 
-        <meta-data android:name="com.here.android.maps.license.key"
-            android:value="DpBTh4Rr5wqWgLLLNhDtWYW5t2mw+Mt0x2K8q5O6sEFaJaECZai6xyAOiBEQmgs6T1QCHlGdQbdsnM3Ua6XBK8XdnjcvByQXJfgxkuNUUFqmznlclOkrlfW01mZ1q6FSsxMRJURr4QV1Czqg3rF1aKLmSXx6rRFLW/pCCVvv2qd112EvT0R0ynxsAjR83/nE08KOFIPJfQOzvigsb3o/DZNYMnKL1xrIUrhdKjF6Fr27N7KNAALax77zryBfP8UwoiRno2Vpyd+R0DCyIoOjJKcVCQyQFq4imTiRN+pFojA+uK2/heFHInrIUqXygmHOLXmYtaGcuNcoyKICg2FqHShXUVx7KNiDsKj4WZ5YGNJBRaYdGI0eQxREp7CiM5i/tNtl7oOXkSyyDsDjEoiAYGXZ/mO7Z43z/EW54O1+eJ7znxuo7lNzITLQE3Zr7vybUkZqIcsYUiiPBly1e3ZOl+CmGgFBUrtUT3bxqXxP51NJY5wkJc37/gF9iNgqBeATKYy/U3bayQQQMucqafHbNP8GRXHDF626uacEl/DOaXUQTf4u4XSG92L3KvUsXcWasUF7fxMFX9AGe+QGnTMqINmCE/8eCkFpYLkINOl/Y9cNkzvPTH9XZ83Y1w8Dcb0ZcSK+BZmsltzXRXP6Inpw7M8Wzsg8ehkJGB+8AfRa40s="/>"/>
+        <meta-data
+            android:name="com.here.android.maps.license.key"
+            android:value="Zy8x2o0kRapXJVw2GtHUUoLcv1q3XX3cLUHKuxpSgLOhVwf6jgtsZRU1EyolXc3zZxW45oJHcJxss2sdUSMZCVJL5dZ5GTPbw9chUXCz+hcnN1LHK/x10sTyeMV1b7NTmbR4hQxz/8YNqIJcw6ruK5/P3Pwg4ydX17zTBleJZ/53yMZvR44P73xCiXuySPI6FFYqRhCWYuaJjMsvy518UnC4vp4ukhDmJNSPGnBK7UmZx/LNu4UCa5JMX/CBdjm4DBGsJd43C1XvHzP5fBJJNOvfFPKKOLZeT/I2mx2sXImBB+J1EU6jJYhHNo/3dJuh4XXoTyaKEMZbOs1LjRwj0Mu/DbAvm3lQBUgeRGdyKx489SD9CKjEvWqwW5picdDDkUfrb0MIzDVg24ALGE2vbvLGjx+9g6kEQTJM9Rekpa47wf79eLV/dKOq200DrQOtIHR33SVTF4vnXIA89HPLO+PkOkcMFfSUAx5H1cULj/3DVz2qBh7XCMD95JPY0xu/UHq3n5MfhIQ+y+T0VXS/sScvRl8RTQDsWI8MIahS1ztgQK2V3WN5LwLlQ7bcNpSzmisokalZ+vI5RxvxXdEqiiFO8dOagcgm0KS6YmvPEVgEsAw03JbWteFu/8jTD7mBZb+LMzwgG9Ah1ZweGZTduzjKo+CGJbcRqAVBvcD85C4="/>
 
         <service
             android:name="com.here.android.mpa.service.MapService"
-            android:label="HereMapService"
-            android:process="global.Here.Map.Service.v2"
-            android:exported="true">
+            android:label="MyMapService"
+            android:exported="false" >
             <intent-filter>
-                <action android:name="com.here.android.mpa.service.MapService"></action>
+                <action android:name="lokjianming.stick.MapService" >
+                </action>
             </intent-filter>
         </service>
+
     </application>
 
 </manifest>
